@@ -1,0 +1,38 @@
+name: upi_analyzer
+description: AI-powered UPI transaction analyzer
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # BLoC - state management (your Redux equivalent)
+  flutter_bloc: ^8.1.5
+  equatable: ^2.0.5        # Makes comparing BLoC states easy
+
+  # Navigation
+  go_router: ^13.0.0       # Like React Router
+
+  # Charts (for insights screen)
+  fl_chart: ^0.68.0
+
+  # Icons
+  iconsax_flutter: ^1.0.1  # The icon style matching your UI
+
+  # Permissions (for SMS)
+  permission_handler: ^11.3.1
+
+  # Local storage
+  shared_preferences: ^2.2.3  # Like localStorage for Android
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
