@@ -9,6 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
+  sqflite: ^2.3.3
+  path: ^1.9.0
+
+  flutter_sms_inbox: ^1.0.3
 
   # BLoC - state management (your Redux equivalent)
   flutter_bloc: ^8.1.5
@@ -28,6 +33,9 @@ dependencies:
 
   # Local storage
   shared_preferences: ^2.2.3  # Like localStorage for Android
+
+  # Networking (for calling AI provider APIs from ChatBloc)
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:

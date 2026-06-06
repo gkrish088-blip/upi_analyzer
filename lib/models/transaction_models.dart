@@ -68,7 +68,7 @@ class Transaction {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       amount: amount!,
       type: type!,
-      timestamp: DateTime.now(),
+      timestamp: extractTimestamp(sms),
       rawSms: sms,
       upiRef: upirefString,
       bankAccount: accountNo,
@@ -279,7 +279,7 @@ TransactionType? extractTransactionType(String sms) {
 
 String? extractupiRef(String sms) {
   final upiRefRegrex = RegExp(
-    r'(?:UPI\s*Ref|RefNo|Txn\s*ID|Transaction\s*ID)\s*:?\s*(\d{10,16})',
+    r'(?:UPI\s*Ref(?:No)?|Ref\s*[Nn]o|Txn\s*ID|Transaction\s*ID|Refno)\s*:?\s*(\d{10,16})',
     caseSensitive: false,
   );
   final upiRefmatch = upiRefRegrex.firstMatch(sms);
@@ -317,4 +317,150 @@ double? extractAvailableBal(String sms) {
     }
   }
   return availableBalance;
+}
+
+DateTime extractTimestamp(String sms) {
+  // Pattern 1: DD/MM/YYYY at HH:MM AM/PM
+  // Example: "paid on 26/04/2026 at 10:38 PM"
+  final p1 = RegExp(
+    r'(\d{1,2})/(\d{1,2})/(\d{4})\s+at\s+(\d{1,2}):(\d{2})\s*(AM|PM)',
+    caseSensitive: false,
+  );
+  final m1 = p1.firstMatch(sms);
+  if (m1 != null) {
+    int hour = int.parse(m1.group(4)!);
+    final minute = int.parse(m1.group(5)!);
+    final isPm = m1.group(6)!.toUpperCase() == 'PM';
+    if (isPm && hour != 12) hour += 12;
+    if (!isPm && hour == 12) hour = 0;
+    return DateTime(
+      int.parse(m1.group(3)!),
+      int.parse(m1.group(2)!),
+      int.parse(m1.group(1)!),
+      hour,
+      minute,
+    );
+  }
+
+  // Pattern 2: DD-MM-YYYY HH:MM (24hr)
+  // Example: "on 27-04-2026 17:13"
+  final p2 = RegExp(
+    r'(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2})',
+  );
+  final m2 = p2.firstMatch(sms);
+  if (m2 != null) {
+    return DateTime(
+      int.parse(m2.group(3)!),
+      int.parse(m2.group(2)!),
+      int.parse(m2.group(1)!),
+      int.parse(m2.group(4)!),
+      int.parse(m2.group(5)!),
+    );
+  }
+
+  // Pattern 3: DD/MM/YY HH:MM (24hr, 2-digit year)
+  // Example: "on 26/04/26 10:38"
+  final p3 = RegExp(
+    r'(\d{1,2})/(\d{1,2})/(\d{2})\s+(\d{1,2}):(\d{2})',
+  );
+  final m3 = p3.firstMatch(sms);
+  if (m3 != null) {
+    return DateTime(
+      2000 + int.parse(m3.group(3)!),
+      int.parse(m3.group(2)!),
+      int.parse(m3.group(1)!),
+      int.parse(m3.group(4)!),
+      int.parse(m3.group(5)!),
+    );
+  }
+
+  // Pattern 4: DD-MMM-YYYY HH:MM
+  // Example: "on 26-Apr-2026 10:38"
+  final p4 = RegExp(
+    r'(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})\s+(\d{1,2}):(\d{2})',
+    caseSensitive: false,
+  );
+  final m4 = p4.firstMatch(sms);
+  if (m4 != null) {
+    const months = ['jan','feb','mar','apr','may','jun',
+                    'jul','aug','sep','oct','nov','dec'];
+    final month = months.indexOf(m4.group(2)!.toLowerCase()) + 1;
+    return DateTime(
+      int.parse(m4.group(3)!),
+      month,
+      int.parse(m4.group(1)!),
+      int.parse(m4.group(4)!),
+      int.parse(m4.group(5)!),
+    );
+  }
+
+  // Pattern 5: DD-MMM-YY (date only, no time)
+  // Example: "on 06-Jun-26"
+  final p5 = RegExp(
+    r'(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})',
+    caseSensitive: false,
+  );
+  final m5 = p5.firstMatch(sms);
+  if (m5 != null) {
+    const months = ['jan','feb','mar','apr','may','jun',
+                    'jul','aug','sep','oct','nov','dec'];
+    final month = months.indexOf(m5.group(2)!.toLowerCase()) + 1;
+    return DateTime(
+      2000 + int.parse(m5.group(3)!),
+      month,
+      int.parse(m5.group(1)!),
+    );
+  }
+
+  // Pattern 6: YYYY-MM-DD HH:MM (ISO-like format)
+  // Example: "2026-04-27 17:13"
+  final p6 = RegExp(
+    r'(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})',
+  );
+  final m6 = p6.firstMatch(sms);
+  if (m6 != null) {
+    return DateTime(
+      int.parse(m6.group(1)!),
+      int.parse(m6.group(2)!),
+      int.parse(m6.group(3)!),
+      int.parse(m6.group(4)!),
+      int.parse(m6.group(5)!),
+    );
+  }
+
+  // Pattern 7: DD/MM/YYYY with no time
+  // Example: "on 26/04/2026"
+  final p7 = RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})');
+  final m7 = p7.firstMatch(sms);
+  if (m7 != null) {
+    return DateTime(
+      int.parse(m7.group(3)!),
+      int.parse(m7.group(2)!),
+      int.parse(m7.group(1)!),
+    );
+  }
+
+  // Pattern 8: SBI format DDMmmYY (no separators)
+  // Example: "27Mar26", "03Apr26"
+  final p8 = RegExp(
+    r'(\d{1,2})(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(\d{2})',
+    caseSensitive: false,
+  );
+  final m8 = p8.firstMatch(sms);
+  if (m8 != null) {
+    const months = ['jan','feb','mar','apr','may','jun',
+                    'jul','aug','sep','oct','nov','dec'];
+    final month = months.indexOf(m8.group(2)!.toLowerCase()) + 1;
+    return DateTime(
+      2000 + int.parse(m8.group(3)!),
+      month,
+      int.parse(m8.group(1)!),
+    );
+  }
+
+  // Fallback: no recognizable date found
+  // Use DateTime.now() — deduplication still works via
+  // upiRef or amount+account fingerprint
+  print('🕐 No pattern matched for: ${sms.substring(0, sms.length > 50 ? 50 : sms.length)}');
+  return DateTime.now();
 }

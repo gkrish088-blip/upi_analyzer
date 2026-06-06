@@ -1,5 +1,23 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// HOW BLOC CONNECTS TO THE UI
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// BlocBuilder rebuilds its child whenever the BLoC emits a new state — it's
+// like a StreamBuilder but specifically wired for BLoC. Think of it like
+// React's useSelector: the widget re-renders only when the relevant slice of
+// state changes.
+//
+// BlocBuilder<TransactionBloc, TransactionState> means: "watch TransactionBloc,
+// rebuild whenever its TransactionState changes".
+// ─────────────────────────────────────────────────────────────────────────────
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'settings_drawer.dart';
+import 'bloc/transaction_bloc.dart';
+import 'bloc/transaction_state.dart';
+import 'bloc/transaction_event.dart';
+import 'models/transaction_models.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -35,89 +53,178 @@ class HomeScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.sync, color: Color(0xFF7B61FF)),
+            onPressed: () {
+              context.read<TransactionBloc>().add(const TransactionSyncRequested());
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_outlined),
             color: const Color(0xFF888888),
             onPressed: () {},
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: BlocBuilder<TransactionBloc, TransactionState>(
+        builder: (context, state) {
+          if (state is TransactionLoading || state is TransactionInitial) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF7B61FF),
+              ),
+            );
+          }
+
+          if (state is TransactionPermissionDenied) {
+            return _buildPermissionPrompt(context);
+          }
+
+          if (state is TransactionError) {
+            return Center(
+              child: Text(
+                state.message,
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+
+          if (state is TransactionLoaded) {
+            return _buildHomeContent(context, state);
+          }
+
+          return const SizedBox();
+        },
+      ),
+    );
+  }
+
+  Widget _buildPermissionPrompt(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.sms_outlined, size: 64, color: Color(0xFF7B61FF)),
+          const SizedBox(height: 16),
+          const Text(
+            'SMS Permission Required',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Grant SMS access to track your UPI transactions',
+            style: TextStyle(color: Color(0xFF888888), fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7B61FF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            ),
+            onPressed: () {
+              context.read<TransactionBloc>().add(const TransactionSyncRequested());
+            },
+            child: const Text(
+              'Grant Permission',
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeContent(BuildContext context, TransactionLoaded state) {
+    return RefreshIndicator(
+      color: const Color(0xFF7B61FF),
+      backgroundColor: const Color(0xFF1A1A1A),
+      onRefresh: () async {
+        context.read<TransactionBloc>().add(const TransactionSyncRequested());
+        await Future.delayed(const Duration(seconds: 2));
+      },
+      child: SingleChildScrollView(
         child: Column(
           children: [
-            _buildSpendingCard(),
+            _buildSpendingCard(
+              totalSpent: state.totalSpent,
+              comparisonAmount: 2140,
+              isUp: true,
+            ),
             const SizedBox(height: 16),
             _buildIncomeAndSavingsRow(
-              income: 2345,
-              incomeTag: "credited",
-              savingsRate: 23,
-              savingsTag: "on  track",
+              income: state.totalIncome,
+              incomeTag: 'credited',
+              savingsRate: state.savingsRate,
+              savingsTag: state.savingsRate >= 20 ? 'on track' : 'low',
             ),
             const SizedBox(height: 16),
             _buildDonutChartCard(
-              month: 'June',
-              categories: [
-                {
-                  'name': 'Food',
-                  'amount': 5800,
-                  'color': const Color(0xFF7B61FF),
-                },
-                {
-                  'name': 'Transport',
-                  'amount': 3200,
-                  'color': const Color(0xFF4CAF50),
-                },
-                {
-                  'name': 'Shopping',
-                  'amount': 2500,
-                  'color': const Color(0xFFFF9800),
-                },
-                {
-                  'name': 'Bills',
-                  'amount': 4200,
-                  'color': const Color(0xFFE91E63),
-                },
-                {
-                  'name': 'Other',
-                  'amount': 2720,
-                  'color': const Color(0xFF888888),
-                },
-              ],
+              month: _monthName(state.selectedMonth),
+              categories: state.spendingByCategory.entries.map((entry) {
+                return {
+                  'name': entry.key.name,
+                  'amount': entry.value.toStringAsFixed(0),
+                  'color': _categoryColor(entry.key),
+                };
+              }).toList(),
             ),
             _buildRecentTransactions(
-              transactions: [
-                {
-                  'time': 'Today, 1:34 PM',
-                  'category': 'Food',
-                  'amount': 340,
-                  'isDebit': true,
-                  'upiRef': 'UPI Ref: 2345678',
-                },
-                {
-                  'time': 'Today, 10:12 AM',
-                  'category': 'Transport',
-                  'amount': 180,
-                  'isDebit': true,
-                  'upiRef': 'UPI Ref: 2345600',
-                },
-                {
-                  'time': 'Jun 1',
-                  'category': 'Income',
-                  'amount': 52000,
-                  'isDebit': false,
-                  'upiRef': 'UPI Ref: 2300001',
-                },
-              ],
+              transactions: state.recentTransactions.map((t) {
+                return {
+                  'time': t.formattedDate,
+                  'category': t.category.name,
+                  'amount': t.amount,
+                  'isDebit': t.isDebit,
+                  'upiRef': t.upiRef ?? 'UPI Transaction',
+                };
+              }).toList(),
             ),
           ],
         ),
       ),
     );
   }
+
+  Color _categoryColor(TransactionCategory category) {
+    switch (category) {
+      case TransactionCategory.food:
+        return const Color(0xFF7B61FF);
+      case TransactionCategory.transport:
+        return const Color(0xFF4CAF50);
+      case TransactionCategory.shopping:
+        return const Color(0xFFFF9800);
+      case TransactionCategory.bills:
+        return const Color(0xFFE91E63);
+      case TransactionCategory.entertainment:
+        return const Color(0xFF00BCD4);
+      case TransactionCategory.transfer:
+        return const Color(0xFF2196F3);
+      case TransactionCategory.other:
+        return const Color(0xFF888888);
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return months[month - 1];
+  }
 }
 
-Widget _buildSpendingCard() {
-  final double totalSpent = 34567;
-  final double difference_with_last_month = 4356;
+Widget _buildSpendingCard({
+  required double totalSpent,
+  required double comparisonAmount,
+  required bool isUp,
+}) {
   return Container(
     width: double.infinity,
     padding: const EdgeInsets.all(20),
@@ -128,25 +235,25 @@ Widget _buildSpendingCard() {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           "Total spent this month",
           style: TextStyle(color: Colors.black, fontSize: 14),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
 
         Text(
-          "₹$totalSpent",
-          style: TextStyle(
+          "₹${totalSpent.toStringAsFixed(0)}",
+          style: const TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
 
         Text(
-          "↑ ₹$difference_with_last_month vs last month",
-          style: TextStyle(color: Colors.deepPurple),
+          "${isUp ? '↑' : '↓'} ₹${comparisonAmount.toStringAsFixed(0)} vs last month",
+          style: const TextStyle(color: Colors.deepPurple),
         ),
       ],
     ),
@@ -164,7 +271,7 @@ Widget _buildIncomeAndSavingsRow({
       Expanded(
         child: _buildSmallCard(
           title: "Income",
-          value: "$income",
+          value: income.toStringAsFixed(0),
           tag: "$incomeTag",
         ),
       ),
@@ -172,7 +279,7 @@ Widget _buildIncomeAndSavingsRow({
       Expanded(
         child: _buildSmallCard(
           title: "Savings Rate",
-          value: "$savingsRate%",
+          value: '${savingsRate.toStringAsFixed(1)}%',
           tag: "$savingsTag",
         ),
       ),

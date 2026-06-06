@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:upi_analyzer/ask_ai_screen.dart';
 import 'package:upi_analyzer/home_screen.dart';
 import 'package:upi_analyzer/insights_screen.dart';
 import 'package:upi_analyzer/transactions_screen.dart';
+import 'bloc/transaction_bloc.dart';
+import 'bloc/transaction_event.dart';
+import 'bloc/chat_bloc.dart';
+import 'repository/transaction_repository.dart';
 
 void main() {
   runApp(const UpiAnalyserApp());
@@ -26,7 +30,22 @@ class UpiAnalyserApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainShell(),
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<TransactionBloc>(
+            create: (context) => TransactionBloc(
+              repository: TransactionRepository(),
+            )..add(TransactionLoadRequested(
+                year: DateTime.now().year,
+                month: DateTime.now().month,
+              )),
+          ),
+          BlocProvider<ChatBloc>(
+            create: (context) => ChatBloc(),
+          ),
+        ],
+        child: const MainShell(),
+      ),
     );
   }
 }
