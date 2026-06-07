@@ -48,17 +48,13 @@ class TransactionRepository {
 
     // If not granted, actively request it
     if (!hasPermission) {
-      print('🔐 Permission not granted, requesting...');
       hasPermission = await requestSmsPermission();
     }
 
     // If still not granted after request, give up
     if (!hasPermission) {
-      print('🔐 Permission denied after request');
       return SyncResult.permissionDenied();
     }
-
-    print('🔐 Permission granted, proceeding with sync...');
 
     try {
       // SmsService already parses raw SMS strings into Transaction objects
@@ -279,7 +275,7 @@ class SyncResult {
         newTransactionsCount: newCount,
       );
 
-  factory SyncResult.permissionDenied() => SyncResult._(
+  factory SyncResult.permissionDenied() => const SyncResult._(
         success: false,
         permissionDenied: true,
         newTransactionsCount: 0,

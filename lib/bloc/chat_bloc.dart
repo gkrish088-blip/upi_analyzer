@@ -240,139 +240,151 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       final systemPrompt = _buildSystemPrompt(transactionSummary);
 
-      // Only the most recent messages are sent — older ones are dropped to
-      // keep the request small. `history` already includes the user's latest
-      // message (it was added to the list before this method was called), so
-      // we exclude it here and pass it separately as `userMessage` instead —
-      // each provider's body appends it as the final turn.
+      // ── Step 1: trim the history down to the last 10 messages ──────────
+      // This is like session memory for the AI: enough for it to follow the
+      // thread of the conversation ("you said X, now I'm asking about Y"),
+      // but capped so we don't blow through the provider's token limits (and
+      // cost) by replaying the entire chat history on every single message.
+      // (At this point `history` is the conversation as it was *before* the
+      // current user message was appended — see the call site in
+      // _onMessageSent — so there's no risk of the new message appearing
+      // twice once we add it back in step 3.)
       final recentHistory = history.length > 10
           ? history.sublist(history.length - 10)
           : history;
-      final conversationHistory =
-          recentHistory.where((m) => m.text != userMessage || m.isUser != true)
-              .toList();
 
+      // ── Step 2: turn ChatMessages into the {role, content} shape every
+      // provider's chat API understands, while protecting the one rule all
+      // three of them share: roles must strictly ALTERNATE user → assistant
+      // → user → assistant... Two messages from the same role back to back
+      // (e.g. "user", "user") makes Claude's API reject the request with a
+      // 400 error.
+      //
+      // Error bubbles (e.g. "No API key found...") are UI-only — the AI
+      // never actually said them — so we drop them here. Leaving them in
+      // would both confuse the model with messages it never produced *and*
+      // risk creating exactly the same-role-twice-in-a-row problem we're
+      // trying to avoid (an error bubble always sits on the AI's side, right
+      // next to a real AI reply or another error).
+      final apiMessages = recentHistory
+          .where((m) => !m.isError)
+          .map((m) => {
+                'role': m.isUser ? 'user' : 'assistant',
+                'content': m.text,
+              })
+          .toList();
+
+      // ── Step 3: append the brand-new user message as the final turn ────
+      // This is the actual question we're asking the AI to answer right now.
+      apiMessages.add({'role': 'user', 'content': userMessage});
+
+      // ── Step 4: route to the right provider's HTTP API ─────────────────
+      // Same "courier service" idea as before: same parcel (`apiMessages` —
+      // one shared, alternation-safe conversation), different
+      // provider-specific paperwork. Each _call* helper below is now
+      // responsible for translating `apiMessages` into its own request shape
+      // (OpenAI/Claude can mostly use it as-is; Gemini needs to relabel
+      // "assistant" as "model" and wrap each turn's text in a `parts` array).
       if (provider == 'OpenAI') {
-        return await _callOpenAi(
-          apiKey: apiKey,
-          systemPrompt: systemPrompt,
-          history: conversationHistory,
-          userMessage: userMessage,
+        final response = await http.post(
+          Uri.parse('https://api.openai.com/v1/chat/completions'),
+          headers: {
+            // The Content-Type header MUST be set explicitly so the OpenAI
+            // server knows to parse the request body as JSON rather than
+            // rejecting/mis-handling it as plain text.
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $apiKey',
+          },
+          // jsonEncode turns our Dart Map into a JSON *String* — the http
+          // package sends whatever we hand it as the raw request body, so it
+          // must already be an encoded String, not a raw Map.
+          body: jsonEncode({
+            'model': 'gpt-4o-mini',
+            'messages': [
+              {'role': 'system', 'content': systemPrompt},
+              ...apiMessages,
+            ],
+            'max_tokens': 300,
+          }),
         );
+
+        if (response.statusCode != 200) {
+          // OpenAI's error responses carry a human-readable explanation at
+          // error.message — surfacing that (instead of just the status code)
+          // makes the error bubble the user sees actually useful for
+          // figuring out what to fix (e.g. "Incorrect API key provided").
+          final errorBody = jsonDecode(response.body);
+          final errorMessage = errorBody['error']?['message'] ?? 'Unknown error';
+          throw Exception('OpenAI error ${response.statusCode}: $errorMessage');
+        }
+
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'] as String;
       } else if (provider == 'Gemini') {
-        return await _callGemini(
-          apiKey: apiKey,
-          systemPrompt: systemPrompt,
-          history: conversationHistory,
-          userMessage: userMessage,
+        final url = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/'
+          'gemini-2.5-flash:generateContent?key=$apiKey'
         );
+
+        final contents = [
+          ...apiMessages.map((m) => {
+            'role': m['role'] == 'assistant' ? 'model' : 'user',
+            'parts': [{'text': m['content']}],
+          }),
+        ];
+
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'systemInstruction': {
+              'parts': [{'text': systemPrompt}]
+            },
+            'contents': contents,
+            // ── maxOutputTokens raised from 300 → 8192 ──────────────────────
+            // Gemini 2.5 Flash spends "thinking tokens" internally before it
+            // ever writes the visible reply, and those thinking tokens are
+            // deducted from the SAME maxOutputTokens budget as the final
+            // answer. At 300, almost the entire budget was being consumed by
+            // invisible chain-of-thought, so the model hit
+            // finishReason: MAX_TOKENS after only a sentence or two of real
+            // output. 8192 leaves enough headroom for both the thinking phase
+            // (if any slips through) and a complete response.
+            // ── generationConfig only — no thinkingConfig ───────────────────
+            // We previously also sent a top-level `thinkingConfig: { thinkingBudget: 0 }`
+            // to try to disable Gemini's internal "thinking" phase and save
+            // tokens for the visible reply. That field turned out to be
+            // unnecessary: simply raising `maxOutputTokens` to 8192 already
+            // gives the model enough budget to spend some tokens thinking
+            // AND still produce a complete visible response. Removing
+            // `thinkingConfig` keeps the request body simpler and avoids any
+            // risk of the field being rejected/ignored by a future API version.
+            'generationConfig': {
+              'maxOutputTokens': 8192,
+              'temperature': 0.7,
+            },
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          final errorData = jsonDecode(response.body);
+          final errorMsg = errorData['error']?['message'] ?? 'Unknown error';
+          throw Exception('Gemini request failed (${response.statusCode}): $errorMsg');
+        }
+
+        final data = jsonDecode(response.body);
+        return data['candidates'][0]['content']['parts'][0]['text'] as String;
       } else {
         // 'Claude' (and anything unrecognized) — Claude is our default.
         return await _callClaude(
           apiKey: apiKey,
           systemPrompt: systemPrompt,
-          history: conversationHistory,
-          userMessage: userMessage,
+          messages: apiMessages,
         );
       }
     } catch (e) {
       throw Exception('AI request failed: $e');
     }
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Provider: OpenAI (https://api.openai.com/v1/chat/completions)
-  // ───────────────────────────────────────────────────────────────────────────
-  //
-  // OpenAI's chat format is a single flat `messages` array where the system
-  // prompt, history, and the new user message all live side by side, each
-  // tagged with a `role` of 'system', 'user', or 'assistant'.
-  Future<String> _callOpenAi({
-    required String apiKey,
-    required String systemPrompt,
-    required List<ChatMessage> history,
-    required String userMessage,
-  }) async {
-    final response = await http.post(
-      Uri.parse('https://api.openai.com/v1/chat/completions'),
-      headers: {
-        'Authorization': 'Bearer $apiKey',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': 'gpt-4o-mini',
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          ...history.map((m) => {
-                'role': m.isUser ? 'user' : 'assistant',
-                'content': m.text,
-              }),
-          {'role': 'user', 'content': userMessage},
-        ],
-        'max_tokens': 300,
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('OpenAI request failed (${response.statusCode})');
-    }
-
-    final data = jsonDecode(response.body);
-    return data['choices'][0]['message']['content'] as String;
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Provider: Gemini (generativelanguage.googleapis.com)
-  // ───────────────────────────────────────────────────────────────────────────
-  //
-  // Gemini's format is shaped quite differently from OpenAI's: instead of a
-  // flat `messages` array with role names 'user'/'assistant', it wants
-  // `contents` with role names 'user'/'model', each turn's text wrapped in a
-  // `parts` array, and the system prompt passed entirely separately as
-  // `systemInstruction` rather than as just another message in the list.
-  Future<String> _callGemini({
-    required String apiKey,
-    required String systemPrompt,
-    required List<ChatMessage> history,
-    required String userMessage,
-  }) async {
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$apiKey',
-    );
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          ...history.map((m) => {
-                'role': m.isUser ? 'user' : 'model',
-                'parts': [
-                  {'text': m.text}
-                ],
-              }),
-          {
-            'role': 'user',
-            'parts': [
-              {'text': userMessage}
-            ],
-          },
-        ],
-        'systemInstruction': {
-          'parts': [
-            {'text': systemPrompt}
-          ],
-        },
-        'generationConfig': {'maxOutputTokens': 300},
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Gemini request failed (${response.statusCode})');
-    }
-
-    final data = jsonDecode(response.body);
-    return data['candidates'][0]['content']['parts'][0]['text'] as String;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -384,11 +396,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   // system prompt is its own top-level `system` field rather than a message in
   // the array, and authentication is via an `x-api-key` header plus a required
   // `anthropic-version` header instead of a Bearer token.
+  //
+  // Claude is also the strictest about the user/assistant alternation rule —
+  // it's the one that returns an HTTP 400 if two same-role turns sit next to
+  // each other — so it benefits the most from receiving the already-cleaned
+  // `apiMessages` list straight from _getAiResponse, with no extra mapping
+  // needed: the {role, content} shape is exactly what this endpoint expects.
   Future<String> _callClaude({
     required String apiKey,
     required String systemPrompt,
-    required List<ChatMessage> history,
-    required String userMessage,
+    required List<Map<String, String>> messages,
   }) async {
     final response = await http.post(
       Uri.parse('https://api.anthropic.com/v1/messages'),
@@ -401,13 +418,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         'model': 'claude-haiku-4-5-20251001',
         'max_tokens': 300,
         'system': systemPrompt,
-        'messages': [
-          ...history.map((m) => {
-                'role': m.isUser ? 'user' : 'assistant',
-                'content': m.text,
-              }),
-          {'role': 'user', 'content': userMessage},
-        ],
+        'messages': messages,
       }),
     );
 

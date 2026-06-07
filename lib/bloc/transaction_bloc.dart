@@ -98,14 +98,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   ) async {
     emit(const TransactionLoading());
 
-    print('🔄 Sync started...');
-
     final result = await _repository.syncTransactions();
-
-    print('✅ Sync result: success=${result.success}');
-    print('✅ Permission denied=${result.permissionDenied}');
-    print('✅ New transactions=${result.newTransactionsCount}');
-    print('✅ Error=${result.errorMessage}');
 
     if (result.permissionDenied) {
       emit(const TransactionPermissionDenied());
@@ -387,12 +380,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       // Load all transactions — UI will handle date filtering
       final transactions = await _repository.getAllTransactions();
 
-      print('📦 Transactions loaded from DB: ${transactions.length}');
-
       final totalSpent = _repository.getTotalSpent(transactions);
       final totalIncome = _repository.getTotalIncome(transactions);
-
-      print('💰 Total spent: $totalSpent');
 
       final savingsRate = totalIncome == 0
           ? 0.0

@@ -272,15 +272,15 @@ Widget _buildIncomeAndSavingsRow({
         child: _buildSmallCard(
           title: "Income",
           value: income.toStringAsFixed(0),
-          tag: "$incomeTag",
+          tag: incomeTag,
         ),
       ),
-      SizedBox(width: 12),
+      const SizedBox(width: 12),
       Expanded(
         child: _buildSmallCard(
           title: "Savings Rate",
           value: '${savingsRate.toStringAsFixed(1)}%',
-          tag: "$savingsTag",
+          tag: savingsTag,
         ),
       ),
     ],
@@ -303,17 +303,17 @@ Widget _buildSmallCard({
       children: [
         Text(title),
 
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
 
         Text(
           value,
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
 
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
 
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.green.shade100,
             borderRadius: BorderRadius.circular(8),
@@ -475,7 +475,7 @@ Widget _buildRecentTransactions({
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.1),
+                    color: categoryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(

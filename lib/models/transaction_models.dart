@@ -245,18 +245,11 @@ String? extractMerchant(String sms) {
 
   String? merchant;
 
-  for (final entry in merchantPatterns.entries) {
-    final patternName = entry.key;
-    final pattern = entry.value;
-
+  for (final pattern in merchantPatterns.values) {
     final match = RegExp(pattern, caseSensitive: false).firstMatch(sms);
 
     if (match != null) {
       merchant = match.group(1)?.trim();
-
-      print('Merchant matched using: $patternName');
-      print('Merchant: $merchant');
-
       break;
     }
   }
@@ -461,6 +454,5 @@ DateTime extractTimestamp(String sms) {
   // Fallback: no recognizable date found
   // Use DateTime.now() — deduplication still works via
   // upiRef or amount+account fingerprint
-  print('🕐 No pattern matched for: ${sms.substring(0, sms.length > 50 ? 50 : sms.length)}');
   return DateTime.now();
 }

@@ -24,9 +24,9 @@ class UpiAnalyserApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF0A0A0A),
-        colorScheme: ColorScheme.dark(
-          primary: const Color(0xFF7B61FF),
-          surface: const Color(0xFF1A1A1A),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF7B61FF),
+          surface: Color(0xFF1A1A1A),
         ),
         useMaterial3: true,
       ),
@@ -78,7 +78,7 @@ class _MainShellState extends State<MainShell> {
         },
         backgroundColor: const Color(0xFF1A1A1A),
         indicatorColor: const Color(0xFF7B61FF),
-        destinations: [
+        destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),

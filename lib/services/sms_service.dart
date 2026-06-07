@@ -20,19 +20,12 @@ class SmsService {
     ].request();
 
     final smsGranted = statuses[Permission.sms]?.isGranted ?? false;
-    print('📋 SMS permission granted: $smsGranted');
-    print('📋 SMS status: ${statuses[Permission.sms]}');
     return smsGranted;
   }
 
   // check if permission is already granted (no popup)
   Future<bool> hasSmsPermission() async {
     final status = await Permission.sms.status;
-    print('📋 Current SMS status: $status');
-    // Also check if permanently denied — need to open settings
-    if (status.isPermanentlyDenied) {
-      print('📋 SMS permanently denied — user must enable in settings');
-    }
     return status.isGranted;
   }
 
@@ -56,8 +49,6 @@ class SmsService {
       kinds: [SmsQueryKind.inbox],
     );
 
-    print('📱 Total SMS in inbox: ${messages.length}');
-
     final transactions = <Transaction>[];
 
     for (final sms in messages) {
@@ -74,9 +65,6 @@ class SmsService {
         // unparseable and move on rather than aborting the whole sync.
         final body = sms.body ?? '';
         final source = _extractSourceFromInbox(sms);
-        print('📨 SMS body: ${sms.body}');
-        print('📨 SMS address: ${sms.address}');
-        print('📨 Parsed amount: $body');
         transactions.add(Transaction.fromSms(body, source));
       } catch (_) {
         // Skip silently: a malformed/unsupported SMS format shouldn't
@@ -84,8 +72,6 @@ class SmsService {
         continue;
       }
     }
-
-    print('✅ UPI SMS found: ${transactions.length}');
 
     // 5. Return everything that parsed cleanly. Sorting/deduping/persistence
     // is left to the caller (e.g. a repository/bloc layer) so this service
@@ -240,7 +226,6 @@ class SmsService {
     if (blocklist.any((k) => body.contains(k))) return false;
 
     // All gates cleared — this reads as a genuine UPI/bank transaction SMS.
-    print('✅ UPI SMS passed: $rawBody');
     return true;
   }
 

@@ -36,6 +36,16 @@ class ChatMessage {
     required this.isError,
   });
 
+  /// A simple "HH:MM" clock string built from [timestamp], e.g. "14:05".
+  /// The chat screen prints this directly underneath each bubble so the
+  /// user can see roughly when each message was sent/received. We use the
+  /// same plain 24-hour, zero-padded format as TransactionsScreen does for
+  /// its transaction times, so clocks look consistent across the whole app
+  /// (and we don't need to pull in the `intl` package just for this).
+  String get time =>
+      '${timestamp.hour.toString().padLeft(2, '0')}:'
+      '${timestamp.minute.toString().padLeft(2, '0')}';
+
   /// Builds a bubble for something the *user* typed.
   ///
   /// Always right-aligned, never an error — the user can't "error", they can
