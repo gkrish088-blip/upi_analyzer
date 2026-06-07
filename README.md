@@ -1,4 +1,4 @@
-# 🔍 UPI Analyzer
+# UPI Analyzer
 
 > An AI-powered UPI transaction analyzer for Android.
 > Parses your bank SMS, categorizes spending, and gives
@@ -13,20 +13,20 @@
 
 ---
 
-## ✨ Features
+## Features
 
-| | Feature | Description |
-|---|---|---|
-| 📱 | **Automatic SMS Parsing** | Reads UPI transaction SMS from your inbox automatically. Supports SBI, HDFC, ICICI, Axis, Kotak, GPay, PhonePe, Paytm, BHIM, Swiggy, Blinkit and more. |
-| 🧠 | **Smart Categorization** | Automatically categorizes transactions into Food, Transport, Shopping, Bills, Entertainment, Transfer using merchant keyword matching. Expandable keyword dictionary. |
-| 📊 | **Visual Analytics** | Interactive bar chart showing spending by day of week. Donut chart showing category breakdown. Filter by This Month, Last Month, 3 Months, or custom range. |
-| 🤖 | **AI Financial Insights** | Connects to your own OpenAI, Gemini, or Claude API key. Ask natural language questions about your spending. Get detailed financial analysis on the Insights screen. Your API key is stored locally — never sent to any server. |
-| 🔒 | **100% On-Device Privacy** | All transaction data stored in local SQLite database. No backend server. No data collection. No ads. Only aggregated summaries sent to AI (never raw SMS). |
-| 📤 | **Export & Backup** | Export all transactions as CSV to Downloads folder. Clear all data with one tap. |
+| Feature | Description |
+|---|---|
+| **Automatic SMS Parsing** | Reads UPI transaction SMS from your inbox automatically. Supports SBI, HDFC, ICICI, Axis, Kotak, GPay, PhonePe, Paytm, BHIM, Swiggy, Blinkit and more. |
+| **Smart Categorization** | Automatically categorizes transactions into Food, Transport, Shopping, Bills, Entertainment, Transfer using merchant keyword matching. Expandable keyword dictionary. |
+| **Visual Analytics** | Interactive bar chart showing spending by day of week. Donut chart showing category breakdown. Filter by This Month, Last Month, 3 Months, or custom range. |
+| **AI Financial Insights** | Connects to your own OpenAI, Gemini, or Claude API key. Ask natural language questions about your spending. Get detailed financial analysis on the Insights screen. Your API key is stored locally — never sent to any server. |
+| **100% On-Device Privacy** | All transaction data stored in local SQLite database. No backend server. No data collection. No ads. Only aggregated summaries sent to AI (never raw SMS). |
+| **Export & Backup** | Export all transactions as CSV to Downloads folder. Clear all data with one tap. |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Tech Stack
 
@@ -88,7 +88,7 @@
 
 ---
 
-## 🔄 Data Flow
+## Data Flow
 
 ### SMS Parsing Pipeline
 
@@ -174,7 +174,7 @@ TransactionBloc
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 upi_analyzer/                    ← Flutter app
@@ -227,22 +227,22 @@ upi_sms_parser/                  ← Standalone pub.dev package
 
 ---
 
-## 🏦 Supported Banks & Apps
+## Supported Banks & Apps
 
 ### Banks
 
 | Bank | Sender ID Format | Status |
 |---|---|---|
-| State Bank of India | JK-SBIUPI-S | ✅ Tested |
-| HDFC Bank | AD-HDFCBK | ✅ Supported |
-| ICICI Bank | JD-ICICIB | ✅ Supported |
-| Axis Bank | AD-AXISBK | ✅ Supported |
-| Kotak Mahindra | VM-KOTAK | ✅ Supported |
-| Punjab National Bank | AD-PNBSMS | ✅ Supported |
-| Bank of Baroda | AD-BOBSMS | ✅ Supported |
-| Bank of India | AD-BOISBI | ✅ Supported |
-| Canara Bank | AD-CANBNK | ✅ Supported |
-| IndusInd Bank | AD-INDBNK | ✅ Supported |
+| State Bank of India | JK-SBIUPI-S | Tested |
+| HDFC Bank | AD-HDFCBK | Supported |
+| ICICI Bank | JD-ICICIB | Supported |
+| Axis Bank | AD-AXISBK | Supported |
+| Kotak Mahindra | VM-KOTAK | Supported |
+| Punjab National Bank | AD-PNBSMS | Supported |
+| Bank of Baroda | AD-BOBSMS | Supported |
+| Bank of India | AD-BOISBI | Supported |
+| Canara Bank | AD-CANBNK | Supported |
+| IndusInd Bank | AD-INDBNK | Supported |
 
 ### UPI Apps & Merchants
 
@@ -262,7 +262,7 @@ upi_sms_parser/                  ← Standalone pub.dev package
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -294,7 +294,7 @@ upi_sms_parser/                  ← Standalone pub.dev package
 ### First Time Setup
 
 1. Open the app
-2. Tap the ☰ menu icon
+2. Tap the menu icon
 3. Select your AI provider (OpenAI / Gemini / Claude)
 4. Paste your API key and tap Save
 5. Go back to Home and tap the sync button
@@ -303,7 +303,7 @@ upi_sms_parser/                  ← Standalone pub.dev package
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 | What | Where it goes |
 |---|---|
@@ -323,12 +323,12 @@ AI provider of your choice, using your own API key.
 
 ---
 
-## 📦 upi_sms_parser Package
+## upi_sms_parser Package
 
 This app ships a standalone pub.dev package extracted
 from the core SMS parsing logic.
 
-🔗 https://pub.dev/packages/upi_sms_parser
+https://pub.dev/packages/upi_sms_parser
 
 ### What it does
 
@@ -355,7 +355,7 @@ if (result != null) {
 
 ---
 
-## 💡 Key Technical Decisions
+## Key Technical Decisions
 
 ### Why BLoC?
 
@@ -389,8 +389,8 @@ directly from the phone to the AI provider.
 
 ---
 
-## 📄 License
+## License
 
 MIT License — see LICENSE file for details.
 
-Built with ❤️ using Flutter, BLoC, and SQLite.
+Built with Flutter, BLoC, and SQLite.
